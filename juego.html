@@ -111,6 +111,82 @@
                 opacity: 0;
             }
         }
+
+        .leaderboard {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            min-width: 300px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .leaderboard h3 {
+            text-align: center;
+            margin-top: 0;
+            color: #FFD700;
+            margin-bottom: 15px;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #FFD700;
+            min-width: 30px;
+        }
+
+        .player-name {
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .player-score {
+            font-weight: bold;
+        }
+
+        .new-record {
+            color: #4CAF50 !important;
+            font-weight: bold;
+            animation: glow 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 5px #4CAF50;
+            }
+
+            to {
+                text-shadow: 0 0 20px #4CAF50;
+            }
+        }
+
+        .name-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            padding: 10px;
+            color: white;
+            font-size: 16px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .name-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
     </style>
 </head>
 
@@ -125,12 +201,33 @@
             <h1>🎯 Atrapa los Círculos</h1>
             <p>Haz clic en los círculos antes de que desaparezcan</p>
             <p>¡Tienes 30 segundos!</p>
+
+            <div class="leaderboard" id="startLeaderboard">
+                <h3>🏆 Mejores Puntuaciones</h3>
+                <div id="startLeaderboardList">
+                    <div class="leaderboard-entry">
+                        <span class="rank">1.</span>
+                        <span class="player-name">---</span>
+                        <span class="player-score">0</span>
+                    </div>
+                </div>
+            </div>
+
             <button class="start-button" onclick="startGame()">Comenzar Juego</button>
         </div>
 
         <div class="game-over" id="gameOver">
             <h1>¡Juego Terminado!</h1>
             <p>Puntuación Final: <span id="finalScore">0</span></p>
+            <div id="newRecordSection" style="display: none;">
+                <p class="new-record">¡Nuevo Récord! 🎉</p>
+                <input type="text" id="playerName" class="name-input" placeholder="Ingresa tu nombre" maxlength="15">
+                <button class="start-button" onclick="saveScore()">Guardar Puntuación</button>
+            </div>
+            <div class="leaderboard" id="gameOverLeaderboard">
+                <h3>🏆 Mejores Puntuaciones</h3>
+                <div id="gameOverLeaderboardList"></div>
+            </div>
             <button class="start-button" onclick="restartGame()">Jugar de Nuevo</button>
         </div>
     </div>
@@ -141,8 +238,68 @@
         let gameActive = false;
         let gameTimer;
         let spawnTimer;
+        let isNewRecord = false;
 
         const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+
+        // Sistema de puntuaciones
+        function getLeaderboard() {
+            const saved = localStorage.getItem('circleGameLeaderboard');
+            return saved ? JSON.parse(saved) : [];
+        }
+
+        function saveLeaderboard(leaderboard) {
+            localStorage.setItem('circleGameLeaderboard', JSON.stringify(leaderboard));
+        }
+
+        function isHighScore(newScore) {
+            const leaderboard = getLeaderboard();
+            return leaderboard.length < 10 || newScore > leaderboard[leaderboard.length - 1].score;
+        }
+
+        function addScore(name, score) {
+            const leaderboard = getLeaderboard();
+            leaderboard.push({ name: name, score: score, date: new Date().toLocaleDateString() });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard.splice(10); // Mantener solo top 10
+            saveLeaderboard(leaderboard);
+        }
+
+        function displayLeaderboard(containerId) {
+            const leaderboard = getLeaderboard();
+            const container = document.getElementById(containerId);
+
+            if (leaderboard.length === 0) {
+                container.innerHTML = `
+                    <div class="leaderboard-entry">
+                        <span class="rank">1.</span>
+                        <span class="player-name">---</span>
+                        <span class="player-score">0</span>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = leaderboard.map((entry, index) => `
+                <div class="leaderboard-entry">
+                    <span class="rank">${index + 1}.</span>
+                    <span class="player-name">${entry.name}</span>
+                    <span class="player-score">${entry.score}</span>
+                </div>
+            `).join('');
+        }
+
+        function saveScore() {
+            const name = document.getElementById('playerName').value.trim() || 'Anónimo';
+            addScore(name, score);
+            document.getElementById('newRecordSection').style.display = 'none';
+            displayLeaderboard('gameOverLeaderboardList');
+        }
+
+        // Inicializar leaderboard al cargar
+        window.onload = function () {
+            displayLeaderboard('startLeaderboardList');
+        };
 
         function startGame() {
             document.getElementById('startScreen').style.display = 'none';
@@ -246,6 +403,16 @@
             circles.forEach(circle => circle.remove());
 
             document.getElementById('finalScore').textContent = score;
+
+            // Verificar si es un nuevo récord
+            if (isHighScore(score)) {
+                document.getElementById('newRecordSection').style.display = 'block';
+                document.getElementById('playerName').focus();
+            } else {
+                document.getElementById('newRecordSection').style.display = 'none';
+            }
+
+            displayLeaderboard('gameOverLeaderboardList');
             document.getElementById('gameOver').style.display = 'flex';
         }
 
