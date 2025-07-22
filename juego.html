@@ -187,6 +187,109 @@
         .name-input::placeholder {
             color: rgba(255, 255, 255, 0.7);
         }
+
+        .achievement-notification {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+            z-index: 300;
+            transform: translateX(400px);
+            transition: transform 0.5s ease;
+            max-width: 300px;
+        }
+
+        .achievement-notification.show {
+            transform: translateX(0);
+        }
+
+        .achievement-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .achievement-description {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .achievements-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            min-width: 350px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .achievements-panel h3 {
+            text-align: center;
+            margin-top: 0;
+            color: #FFD700;
+            margin-bottom: 15px;
+        }
+
+        .achievement-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .achievement-item:last-child {
+            border-bottom: none;
+        }
+
+        .achievement-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            min-width: 30px;
+        }
+
+        .achievement-info {
+            flex: 1;
+        }
+
+        .achievement-name {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .achievement-desc {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .achievement-unlocked {
+            opacity: 1;
+        }
+
+        .achievement-locked {
+            opacity: 0.4;
+        }
+
+        .achievements-button {
+            background: #FFD700;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+
+        .achievements-button:hover {
+            background: #FFA500;
+        }
     </style>
 </head>
 
@@ -214,6 +317,7 @@
             </div>
 
             <button class="start-button" onclick="startGame()">Comenzar Juego</button>
+            <button class="achievements-button" onclick="showAchievements()">🏅 Ver Logros</button>
         </div>
 
         <div class="game-over" id="gameOver">
@@ -229,6 +333,20 @@
                 <div id="gameOverLeaderboardList"></div>
             </div>
             <button class="start-button" onclick="restartGame()">Jugar de Nuevo</button>
+        </div>
+
+        <div class="start-screen" id="achievementsScreen" style="display: none;">
+            <h1>🏅 Logros</h1>
+            <div class="achievements-panel">
+                <h3>🎖️ Tus Logros</h3>
+                <div id="achievementsList"></div>
+            </div>
+            <button class="start-button" onclick="hideAchievements()">Volver</button>
+        </div>
+
+        <div class="achievement-notification" id="achievementNotification">
+            <div class="achievement-title" id="achievementTitle"></div>
+            <div class="achievement-description" id="achievementDescription"></div>
         </div>
     </div>
 
@@ -296,9 +414,220 @@
             displayLeaderboard('gameOverLeaderboardList');
         }
 
-        // Inicializar leaderboard al cargar
+        // Sistema de logros
+        const achievements = [
+            {
+                id: 'first_click',
+                name: 'Primer Clic',
+                description: 'Haz clic en tu primer círculo',
+                icon: '🎯',
+                unlocked: false
+            },
+            {
+                id: 'score_100',
+                name: 'Centena',
+                description: 'Alcanza 100 puntos',
+                icon: '💯',
+                unlocked: false
+            },
+            {
+                id: 'score_500',
+                name: 'Quinientos',
+                description: 'Alcanza 500 puntos',
+                icon: '🔥',
+                unlocked: false
+            },
+            {
+                id: 'score_1000',
+                name: 'Millar',
+                description: 'Alcanza 1000 puntos',
+                icon: '⭐',
+                unlocked: false
+            },
+            {
+                id: 'speed_demon',
+                name: 'Demonio de Velocidad',
+                description: 'Haz clic en 10 círculos en 5 segundos',
+                icon: '⚡',
+                unlocked: false
+            },
+            {
+                id: 'perfectionist',
+                name: 'Perfeccionista',
+                description: 'Completa un juego sin perder ningún círculo',
+                icon: '🎖️',
+                unlocked: false
+            },
+            {
+                id: 'survivor',
+                name: 'Superviviente',
+                description: 'Juega 10 partidas',
+                icon: '🛡️',
+                unlocked: false
+            },
+            {
+                id: 'small_hunter',
+                name: 'Cazador de Pequeños',
+                description: 'Haz clic en 20 círculos pequeños',
+                icon: '🔍',
+                unlocked: false
+            },
+            {
+                id: 'combo_master',
+                name: 'Maestro del Combo',
+                description: 'Haz clic en 5 círculos seguidos sin fallar',
+                icon: '🎪',
+                unlocked: false
+            },
+            {
+                id: 'champion',
+                name: 'Campeón',
+                description: 'Alcanza el primer lugar en la tabla',
+                icon: '👑',
+                unlocked: false
+            }
+        ];
+
+        let gameStats = {
+            totalClicks: 0,
+            gamesPlayed: 0,
+            smallCirclesClicked: 0,
+            currentCombo: 0,
+            maxCombo: 0,
+            clicksInLast5Seconds: [],
+            circlesSpawned: 0,
+            circlesMissed: 0
+        };
+
+        function getAchievements() {
+            const saved = localStorage.getItem('circleGameAchievements');
+            if (saved) {
+                const savedAchievements = JSON.parse(saved);
+                // Merge with default achievements to handle new achievements
+                achievements.forEach(achievement => {
+                    const savedAchievement = savedAchievements.find(a => a.id === achievement.id);
+                    if (savedAchievement) {
+                        achievement.unlocked = savedAchievement.unlocked;
+                    }
+                });
+            }
+            return achievements;
+        }
+
+        function saveAchievements() {
+            localStorage.setItem('circleGameAchievements', JSON.stringify(achievements));
+        }
+
+        function getGameStats() {
+            const saved = localStorage.getItem('circleGameStats');
+            if (saved) {
+                const savedStats = JSON.parse(saved);
+                gameStats = { ...gameStats, ...savedStats };
+            }
+            return gameStats;
+        }
+
+        function saveGameStats() {
+            localStorage.setItem('circleGameStats', JSON.stringify(gameStats));
+        }
+
+        function unlockAchievement(achievementId) {
+            const achievement = achievements.find(a => a.id === achievementId);
+            if (achievement && !achievement.unlocked) {
+                achievement.unlocked = true;
+                saveAchievements();
+                showAchievementNotification(achievement);
+            }
+        }
+
+        function showAchievementNotification(achievement) {
+            const notification = document.getElementById('achievementNotification');
+            document.getElementById('achievementTitle').textContent = `🏅 ${achievement.name}`;
+            document.getElementById('achievementDescription').textContent = achievement.description;
+
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        function checkAchievements() {
+            // Primer clic
+            if (gameStats.totalClicks >= 1) {
+                unlockAchievement('first_click');
+            }
+
+            // Puntuaciones
+            if (score >= 100) unlockAchievement('score_100');
+            if (score >= 500) unlockAchievement('score_500');
+            if (score >= 1000) unlockAchievement('score_1000');
+
+            // Superviviente
+            if (gameStats.gamesPlayed >= 10) {
+                unlockAchievement('survivor');
+            }
+
+            // Cazador de pequeños
+            if (gameStats.smallCirclesClicked >= 20) {
+                unlockAchievement('small_hunter');
+            }
+
+            // Maestro del combo
+            if (gameStats.maxCombo >= 5) {
+                unlockAchievement('combo_master');
+            }
+
+            // Demonio de velocidad
+            const now = Date.now();
+            gameStats.clicksInLast5Seconds = gameStats.clicksInLast5Seconds.filter(time => now - time < 5000);
+            if (gameStats.clicksInLast5Seconds.length >= 10) {
+                unlockAchievement('speed_demon');
+            }
+
+            // Perfeccionista
+            if (gameStats.circlesSpawned > 0 && gameStats.circlesMissed === 0 && !gameActive) {
+                unlockAchievement('perfectionist');
+            }
+
+            // Campeón
+            const leaderboard = getLeaderboard();
+            if (leaderboard.length > 0 && score === leaderboard[0].score) {
+                unlockAchievement('champion');
+            }
+        }
+
+        function displayAchievements() {
+            const container = document.getElementById('achievementsList');
+            const userAchievements = getAchievements();
+
+            container.innerHTML = userAchievements.map(achievement => `
+                <div class="achievement-item ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}">
+                    <div class="achievement-icon">${achievement.unlocked ? achievement.icon : '🔒'}</div>
+                    <div class="achievement-info">
+                        <div class="achievement-name">${achievement.name}</div>
+                        <div class="achievement-desc">${achievement.description}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAchievements() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('achievementsScreen').style.display = 'flex';
+            displayAchievements();
+        }
+
+        function hideAchievements() {
+            document.getElementById('achievementsScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'flex';
+        }
+
+        // Inicializar al cargar
         window.onload = function () {
             displayLeaderboard('startLeaderboardList');
+            getAchievements();
+            getGameStats();
         };
 
         function startGame() {
@@ -306,6 +635,14 @@
             score = 0;
             timeLeft = 30;
             gameActive = true;
+
+            // Reiniciar estadísticas del juego actual
+            gameStats.currentCombo = 0;
+            gameStats.circlesSpawned = 0;
+            gameStats.circlesMissed = 0;
+            gameStats.clicksInLast5Seconds = [];
+            gameStats.gamesPlayed++;
+
             updateHUD();
 
             // Timer del juego
@@ -334,6 +671,7 @@
         function createCircle() {
             const circle = document.createElement('div');
             circle.className = 'circle';
+            circle.clicked = false; // Marcar si fue clickeado
 
             // Tamaño aleatorio
             const size = Math.random() * 60 + 30;
@@ -349,14 +687,39 @@
             // Color aleatorio
             circle.style.background = colors[Math.floor(Math.random() * colors.length)];
 
+            // Contar círculo creado
+            gameStats.circlesSpawned++;
+
             // Evento de clic
             circle.onclick = function () {
                 if (!gameActive) return;
 
-                score += Math.floor(100 / size * 10); // Círculos más pequeños dan más puntos
+                const points = Math.floor(100 / size * 10);
+                score += points;
+                circle.clicked = true;
+
+                // Actualizar estadísticas
+                gameStats.totalClicks++;
+                gameStats.currentCombo++;
+                gameStats.clicksInLast5Seconds.push(Date.now());
+
+                // Círculos pequeños (menos de 40px)
+                if (size < 40) {
+                    gameStats.smallCirclesClicked++;
+                }
+
+                // Actualizar combo máximo
+                if (gameStats.currentCombo > gameStats.maxCombo) {
+                    gameStats.maxCombo = gameStats.currentCombo;
+                }
+
                 updateHUD();
                 createExplosion(circle);
                 circle.remove();
+
+                // Verificar logros
+                checkAchievements();
+                saveGameStats();
             };
 
             document.getElementById('gameContainer').appendChild(circle);
@@ -364,6 +727,12 @@
             // Remover círculo después de un tiempo con animación
             setTimeout(() => {
                 if (circle.parentNode) {
+                    // Si no fue clickeado, contar como perdido y resetear combo
+                    if (!circle.clicked) {
+                        gameStats.circlesMissed++;
+                        gameStats.currentCombo = 0;
+                    }
+
                     circle.style.opacity = '0';
                     setTimeout(() => {
                         if (circle.parentNode) {
@@ -403,6 +772,10 @@
             circles.forEach(circle => circle.remove());
 
             document.getElementById('finalScore').textContent = score;
+
+            // Verificar logros al final del juego
+            checkAchievements();
+            saveGameStats();
 
             // Verificar si es un nuevo récord
             if (isHighScore(score)) {
