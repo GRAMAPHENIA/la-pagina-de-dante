@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atrapa los Círculos</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        .hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .circle {
+            position: absolute;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease, opacity 0.8s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .circle:hover {
+            transform: scale(1.1);
+        }
+
+        .start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 200;
+        }
+
+        .start-button {
+            background: #3513b1;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        .start-button:hover {
+            background: #260570;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 200;
+        }
+
+        .explosion {
+            position: absolute;
+            pointer-events: none;
+            color: #FFD700;
+            font-size: 30px;
+            font-weight: bold;
+            animation: explode 0.5s ease-out forwards;
+        }
+
+        @keyframes explode {
+            0% {
+                transform: scale(0.5);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container" id="gameContainer">
+        <div class="hud">
+            <div>Puntos: <span id="score">0</span></div>
+            <div>Tiempo: <span id="timer">30</span>s</div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <h1>🎯 Atrapa los Círculos</h1>
+            <p>Haz clic en los círculos antes de que desaparezcan</p>
+            <p>¡Tienes 30 segundos!</p>
+            <button class="start-button" onclick="startGame()">Comenzar Juego</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h1>¡Juego Terminado!</h1>
+            <p>Puntuación Final: <span id="finalScore">0</span></p>
+            <button class="start-button" onclick="restartGame()">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let gameTimer;
+        let spawnTimer;
+
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            score = 0;
+            timeLeft = 30;
+            gameActive = true;
+            updateHUD();
+
+            // Timer del juego
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                updateHUD();
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // Spawn de círculos
+            spawnCircles();
+        }
+
+        function spawnCircles() {
+            if (!gameActive) return;
+
+            createCircle();
+
+            // Spawn más rápido conforme avanza el juego
+            const spawnRate = Math.max(800 - (score * 20), 300);
+            spawnTimer = setTimeout(spawnCircles, spawnRate);
+        }
+
+        function createCircle() {
+            const circle = document.createElement('div');
+            circle.className = 'circle';
+
+            // Tamaño aleatorio
+            const size = Math.random() * 60 + 30;
+            circle.style.width = size + 'px';
+            circle.style.height = size + 'px';
+
+            // Posición aleatoria
+            const maxX = window.innerWidth - size;
+            const maxY = window.innerHeight - size;
+            circle.style.left = Math.random() * maxX + 'px';
+            circle.style.top = Math.random() * maxY + 'px';
+
+            // Color aleatorio
+            circle.style.background = colors[Math.floor(Math.random() * colors.length)];
+
+            // Evento de clic
+            circle.onclick = function () {
+                if (!gameActive) return;
+
+                score += Math.floor(100 / size * 10); // Círculos más pequeños dan más puntos
+                updateHUD();
+                createExplosion(circle);
+                circle.remove();
+            };
+
+            document.getElementById('gameContainer').appendChild(circle);
+
+            // Remover círculo después de un tiempo con animación
+            setTimeout(() => {
+                if (circle.parentNode) {
+                    circle.style.opacity = '0';
+                    setTimeout(() => {
+                        if (circle.parentNode) {
+                            circle.remove();
+                        }
+                    }, 800); // Esperar a que termine la animación de opacity
+                }
+            }, Math.random() * 2000 + 1500);
+        }
+
+        function createExplosion(element) {
+            const explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.textContent = '+' + Math.floor(100 / parseFloat(element.style.width) * 10);
+            explosion.style.left = element.style.left;
+            explosion.style.top = element.style.top;
+
+            document.getElementById('gameContainer').appendChild(explosion);
+
+            setTimeout(() => {
+                explosion.remove();
+            }, 500);
+        }
+
+        function updateHUD() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('timer').textContent = timeLeft;
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(gameTimer);
+            clearTimeout(spawnTimer);
+
+            // Remover todos los círculos
+            const circles = document.querySelectorAll('.circle');
+            circles.forEach(circle => circle.remove());
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'flex';
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+
+        // Prevenir clic derecho
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+
+</html>
